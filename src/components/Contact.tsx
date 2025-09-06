@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { MapPin, Phone, Mail, Clock, Send } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import emailjs from 'emailjs-com';
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -10,6 +11,10 @@ const Contact = () => {
     subject: '',
     message: ''
   });
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+
+  const form = useRef<HTMLFormElement>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({
@@ -18,11 +23,78 @@ const Contact = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const sendEmail = (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission
-    alert('Thank you for your message! We\'ll get back to you soon to schedule your appointment.');
-    setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+    if (!form.current) return;
+
+    // Build custom HTML for the email
+    const custom_html = `
+      <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(90deg, #0284c7 0%, #10b981 100%); border-radius: 16px; font-family: 'Inter', Arial, sans-serif; color: #fff; max-width: 480px; margin: 0 auto; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="padding: 32px;">
+            <h2 style="margin: 0 0 16px 0; font-size: 24px; font-weight: 700; color: #fff;">New Assessment Request</h2>
+            <table width="100%" cellpadding="0" cellspacing="0" style="background: #fff; border-radius: 12px; color: #222; margin-bottom: 16px;">
+              <tr>
+                <td style="padding: 12px 16px;">
+                  <strong>Full Name:</strong> ${formData.name}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 12px 16px;">
+                  <strong>Email Address:</strong> ${formData.email}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 12px 16px;">
+                  <strong>Phone Number:</strong> ${formData.phone}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 12px 16px;">
+                  <strong>Service Needed:</strong> ${formData.subject}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 12px 16px;">
+                  <strong>Condition/Message:</strong><br>
+                  ${formData.message}
+                </td>
+              </tr>
+            </table>
+            <p style="margin: 0; font-size: 16px; color: #fff;">
+              Please respond to this patient as soon as possible.<br>
+              <span style="font-size: 13px; color: #e0f2fe;">PhysioCore Movement & Recovery</span>
+            </p>
+          </td>
+        </tr>
+      </table>
+    `;
+
+    emailjs.send(
+      "service_xmpswd9",
+      "template_ilx0qh9",
+      { custom_html }, // Only custom_html needed
+      "LRTnxIcJlNzukCVT1"
+    ).then(
+      () => {
+        setToastMessage("Message sent successfully!");
+        setShowToast(true);
+        form.current?.reset();
+        setFormData({
+          name: '',
+          email: '',
+          phone: '',
+          subject: '',
+          message: ''
+        });
+        setTimeout(() => setShowToast(false), 2500);
+      },
+      () => {
+        setToastMessage("Failed to send message.");
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 2500);
+      }
+    );
   };
 
   const contactInfo = [
@@ -50,6 +122,21 @@ const Contact = () => {
 
   return (
     <section id="contact" className="py-16 bg-gray-50">
+      {/* Animated Toast */}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div
+            initial={{ x: 50, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 50, opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            className="fixed top-8 right-8 z-50 bg-gradient-to-r from-sky-600 to-emerald-600 text-white px-6 py-3 rounded-xl shadow-xl font-semibold text-base"
+          >
+            {toastMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -110,7 +197,7 @@ const Contact = () => {
             <div className="bg-white p-8 rounded-2xl shadow-lg">
               <h3 className="text-2xl font-bold text-gray-900 mb-6">Schedule Your Assessment</h3>
               
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form ref={form} onSubmit={sendEmail} className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
